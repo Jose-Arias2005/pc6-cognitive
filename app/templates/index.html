@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel de Usuarios · CloudAdmin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 antialiased">
+  <!-- Barra superior -->
+  <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
+      <div class="flex items-center gap-3">
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+          </svg>
+        </div>
+        <div>
+          <span class="text-base font-bold tracking-tight text-slate-900">CloudAdmin</span>
+          <div class="hidden sm:flex items-center gap-2 text-xs text-slate-500">
+            <span>DynamoDB: <strong class="font-medium text-slate-700">{{ aws_config.table_name }}</strong></span>
+            <span aria-hidden="true">·</span>
+            <span>S3: <strong class="font-medium text-slate-700">{{ aws_config.bucket_name or "Sin configurar" }}</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <span class="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+          {{ admin_user }}
+        </span>
+        <form action="/logout" method="post">
+          <button
+            type="submit"
+            class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:text-slate-900 transition"
+          >
+            <svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+            </svg>
+            Cerrar sesión
+          </button>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
+    <!-- Alertas de sesión o conexión AWS -->
+    {% if flash %}
+    <div
+      id="flashBanner"
+      class="flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm ring-1 ring-inset {{ 'bg-emerald-50 text-emerald-800 ring-emerald-600/20' if flash.category == 'success' else 'bg-rose-50 text-rose-800 ring-rose-600/20' }}"
+      role="status"
+    >
+      <span>{{ flash.message }}</span>
+      <button type="button" onclick="document.getElementById('flashBanner').remove()" class="text-xs font-semibold opacity-70 hover:opacity-100">
+        Cerrar
+      </button>
+    </div>
+    {% endif %}
+
+    {% if aws_error %}
+    <div class="rounded-xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-inset ring-amber-600/20" role="alert">
+      <p class="font-semibold">Atención con servicios AWS</p>
+      <p class="mt-0.5 text-amber-800">{{ aws_error }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Encabezado y métricas rápidas -->
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Usuarios mostrados</p>
+        <p class="mt-1.5 text-2xl font-bold text-slate-900">{{ stats.total }}</p>
+      </div>
+      <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Usuarios activos</p>
+        <p class="mt-1.5 text-2xl font-bold text-emerald-600">{{ stats.active }}</p>
+      </div>
+      <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Administradores</p>
+        <p class="mt-1.5 text-2xl font-bold text-indigo-600">{{ stats.admins }}</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
+      <!-- Formulario de registro (Crear) -->
+      <section class="lg:col-span-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <div class="mb-5">
+          <h2 class="text-base font-semibold text-slate-900">Registrar usuario</h2>
+          <p class="mt-0.5 text-xs text-slate-500">
+            Almacena el perfil en DynamoDB y la foto en Amazon S3.
+          </p>
+        </div>
+
+        {% if form_error %}
+        <div class="mb-4 rounded-xl bg-rose-50 p-3 text-xs text-rose-800 ring-1 ring-inset ring-rose-600/20" role="alert">
+          {{ form_error }}
+        </div>
+        {% endif %}
+
+        <form id="createUserForm" action="/users" method="post" enctype="multipart/form-data" class="space-y-4">
+          <div>
+            <label for="full_name" class="block text-xs font-medium text-slate-700">Nombre completo</label>
+            <input
+              id="full_name"
+              name="full_name"
+              type="text"
+              required
+              maxlength="120"
+              value="{{ form_data.get('full_name', '') }}"
+              placeholder="Ej. Laura Fernández"
+              class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            />
+          </div>
+
+          <div>
+            <label for="email" class="block text-xs font-medium text-slate-700">Correo electrónico</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              maxlength="180"
+              value="{{ form_data.get('email', '') }}"
+              placeholder="laura@empresa.com"
+              class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="role" class="block text-xs font-medium text-slate-700">Rol</label>
+              <select
+                id="role"
+                name="role"
+                class="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              >
+                {% for r in roles %}
+                <option value="{{ r }}" {{ 'selected' if form_data.get('role', 'Visualizador') == r else '' }}>{{ r }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div>
+              <label for="status" class="block text-xs font-medium text-slate-700">Estado</label>
+              <select
+                id="status"
+                name="status"
+                class="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              >
+                {% for s in statuses %}
+                <option value="{{ s }}" {{ 'selected' if form_data.get('status', 'Activo') == s else '' }}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label for="avatar" class="block text-xs font-medium text-slate-700">
+              Foto de perfil <span class="font-normal text-slate-400">(Opcional)</span>
+            </label>
+            <div class="mt-1.5 flex items-center gap-3">
+              <div id="avatarPreviewBox" class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">
+                <img id="avatarPreviewImg" src="" alt="Vista previa" class="hidden h-full w-full object-cover" />
+                <svg id="avatarPlaceholderIcon" class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                </svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <input
+                  id="avatar"
+                  name="avatar"
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                  class="block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100"
+                />
+                <p class="mt-1 text-[11px] text-slate-400">JPG, PNG o WEBP · Máximo 3 MB</p>
+              </div>
+            </div>
+            <p id="avatarClientError" class="mt-1.5 hidden text-xs text-rose-600"></p>
+          </div>
+
+          <button
+            type="submit"
+            class="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition"
+          >
+            Guardar usuario
+          </button>
+        </form>
+      </section>
+
+      <!-- Tabla de usuarios (Consultar / Editar / Eliminar) -->
+      <section class="lg:col-span-8 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 overflow-hidden">
+        <div class="border-b border-slate-200 p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-base font-semibold text-slate-900">Directorio de usuarios</h2>
+            <p class="mt-0.5 text-xs text-slate-500">Registros sincronizados con Amazon DynamoDB</p>
+          </div>
+
+          <form action="/" method="get" class="flex items-center gap-2 w-full sm:w-auto">
+            <div class="relative flex-1 sm:w-64">
+              <svg class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+              </svg>
+              <input
+                type="search"
+                name="q"
+                value="{{ search_query }}"
+                placeholder="Buscar nombre o correo..."
+                class="block w-full rounded-xl border border-slate-300 bg-slate-50/50 pl-9 pr-3 py-1.5 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              />
+            </div>
+            <button
+              type="submit"
+              class="rounded-xl bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition"
+            >
+              Buscar
+            </button>
+            {% if search_query %}
+            <a
+              href="/"
+              class="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
+            >
+              Limpiar
+            </a>
+            {% endif %}
+          </form>
+        </div>
+
+        {% if users %}
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+            <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <tr>
+                <th scope="col" class="px-5 py-3.5">Usuario</th>
+                <th scope="col" class="px-4 py-3.5">Rol</th>
+                <th scope="col" class="px-4 py-3.5">Estado</th>
+                <th scope="col" class="px-4 py-3.5">Creado</th>
+                <th scope="col" class="px-5 py-3.5 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+              {% for user in users %}
+              <tr class="hover:bg-slate-50/70 transition">
+                <td class="px-5 py-3.5">
+                  <div class="flex items-center gap-3">
+                    {% if user.avatar_url %}
+                    <img
+                      src="{{ user.avatar_url }}"
+                      alt="Foto de {{ user.full_name }}"
+                      loading="lazy"
+                      onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden'); this.nextElementSibling.classList.add('flex');"
+                      class="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-slate-200 bg-slate-100"
+                    />
+                    <div class="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+                      {{ user.full_name | initials }}
+                    </div>
+                    {% else %}
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+                      {{ user.full_name | initials }}
+                    </div>
+                    {% endif %}
+                    <div class="min-w-0">
+                      <p class="truncate font-semibold text-slate-900">{{ user.full_name }}</p>
+                      <p class="truncate text-xs text-slate-500">{{ user.email }}</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-4 py-3.5 whitespace-nowrap">
+                  {% if user.role == "Admin" %}
+                  <span class="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20">Admin</span>
+                  {% elif user.role == "Editor" %}
+                  <span class="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700 ring-1 ring-inset ring-sky-600/20">Editor</span>
+                  {% else %}
+                  <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-500/20">{{ user.role }}</span>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3.5 whitespace-nowrap">
+                  {% if user.status == "Activo" %}
+                  <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                    Activo
+                  </span>
+                  {% else %}
+                  <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20">
+                    <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+                    Inactivo
+                  </span>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3.5 whitespace-nowrap text-xs text-slate-500">
+                  {{ user.created_at | format_dt }}
+                </td>
+                <td class="px-5 py-3.5 whitespace-nowrap text-right">
+                  <div class="inline-flex items-center gap-2">
+                    <a
+                      href="/users/{{ user.user_id }}/edit"
+                      class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition"
+                    >
+                      Editar
+                    </a>
+                    <button
+                      type="button"
+                      data-delete-trigger="true"
+                      data-user-id="{{ user.user_id }}"
+                      data-user-name="{{ user.full_name }}"
+                      class="rounded-lg border border-rose-200 bg-rose-50/50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="px-6 py-14 text-center">
+          <svg class="mx-auto h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+          </svg>
+          <p class="mt-3 text-sm font-medium text-slate-700">
+            {% if search_query %}
+            No se encontraron usuarios para "{{ search_query }}".
+            {% else %}
+            Aún no hay usuarios registrados.
+            {% endif %}
+          </p>
+          <p class="mt-1 text-xs text-slate-500">
+            Usa el formulario de la izquierda para registrar el primer usuario.
+          </p>
+        </div>
+        {% endif %}
+      </section>
+    </div>
+  </main>
+
+  <!-- Modal de confirmación de eliminación -->
+  <div id="deleteModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-200">
+      <div class="flex items-start gap-3">
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+          </svg>
+        </div>
+        <div>
+          <h3 id="deleteModalTitle" class="text-base font-semibold text-slate-900">Confirmar eliminación</h3>
+          <p class="mt-1 text-sm text-slate-600">
+            ¿Deseas eliminar permanentemente a <strong id="deleteUserName" class="text-slate-900"></strong>?
+            Se borrará su registro de DynamoDB y su foto de perfil en S3.
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-6 flex justify-end gap-2.5">
+        <button
+          type="button"
+          id="cancelDeleteBtn"
+          class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+        >
+          Cancelar
+        </button>
+        <form id="deleteForm" method="post" action="">
+          <button
+            type="submit"
+            class="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-rose-700 transition"
+          >
+            Sí, eliminar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Previsualización y validación previa en cliente de imagen (3 MB / JPG, PNG, WEBP)
+    const avatarInput = document.getElementById("avatar");
+    const avatarPreviewImg = document.getElementById("avatarPreviewImg");
+    const avatarPlaceholderIcon = document.getElementById("avatarPlaceholderIcon");
+    const avatarClientError = document.getElementById("avatarClientError");
+    const MAX_BYTES = 3 * 1024 * 1024;
+    const VALID_EXT = /\.(jpe?g|png|webp)$/i;
+
+    avatarInput?.addEventListener("change", () => {
+      avatarClientError.classList.add("hidden");
+      avatarClientError.textContent = "";
+
+      const file = avatarInput.files?.[0];
+      if (!file) {
+        avatarPreviewImg.classList.add("hidden");
+        avatarPlaceholderIcon.classList.remove("hidden");
+        return;
+      }
+
+      if (!VALID_EXT.test(file.name)) {
+        avatarClientError.textContent = "Formato inválido. Usa JPG, PNG o WEBP.";
+        avatarClientError.classList.remove("hidden");
+        avatarInput.value = "";
+        return;
+      }
+
+      if (file.size > MAX_BYTES) {
+        avatarClientError.textContent = "La imagen supera el límite de 3 MB.";
+        avatarClientError.classList.remove("hidden");
+        avatarInput.value = "";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        avatarPreviewImg.src = e.target.result;
+        avatarPreviewImg.classList.remove("hidden");
+        avatarPlaceholderIcon.classList.add("hidden");
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Modal de confirmación para eliminar usuario
+    const deleteModal = document.getElementById("deleteModal");
+    const deleteForm = document.getElementById("deleteForm");
+    const deleteUserName = document.getElementById("deleteUserName");
+    const cancelDeleteBtn = document.getElementById("cancelDeleteBtn");
+
+    document.querySelectorAll("[data-delete-trigger='true']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        deleteForm.action = `/users/${encodeURIComponent(btn.dataset.userId)}/delete`;
+        deleteUserName.textContent = btn.dataset.userName || "este usuario";
+        deleteModal.classList.remove("hidden");
+        deleteModal.classList.add("flex");
+      });
+    });
+
+    const closeDeleteModal = () => {
+      deleteModal.classList.add("hidden");
+      deleteModal.classList.remove("flex");
+    };
+
+    cancelDeleteBtn?.addEventListener("click", closeDeleteModal);
+    deleteModal?.addEventListener("click", (e) => {
+      if (e.target === deleteModal) closeDeleteModal();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !deleteModal.classList.contains("hidden")) {
+        closeDeleteModal();
+      }
+    });
+  </script>
+</body>
+</html>

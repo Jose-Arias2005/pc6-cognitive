@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Editar Usuario · CloudAdmin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 antialiased">
+  <!-- Barra superior -->
+  <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
+      <div class="flex items-center gap-3">
+        <a href="/" class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+          </svg>
+        </a>
+        <div>
+          <span class="text-base font-bold tracking-tight text-slate-900">CloudAdmin</span>
+          <p class="hidden sm:block text-xs text-slate-500">Edición de usuario · {{ aws_config.table_name }}</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <span class="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+          {{ admin_user }}
+        </span>
+        <form action="/logout" method="post">
+          <button
+            type="submit"
+            class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:text-slate-900 transition"
+          >
+            Cerrar sesión
+          </button>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+    <div class="mb-5">
+      <a href="/" class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-indigo-600 transition">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+        </svg>
+        Volver al panel de usuarios
+      </a>
+    </div>
+
+    <div class="rounded-2xl bg-white p-6 sm:p-8 shadow-sm ring-1 ring-slate-200">
+      <div class="border-b border-slate-100 pb-5 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-center gap-4">
+          {% if user.avatar_url %}
+          <img
+            id="currentAvatarImg"
+            src="{{ user.avatar_url }}"
+            alt="Foto actual de {{ user.full_name }}"
+            onerror="const fb = document.getElementById('currentAvatarFallback'); this.classList.add('hidden'); fb.classList.remove('hidden'); fb.classList.add('flex');"
+            class="h-16 w-16 rounded-full object-cover ring-2 ring-indigo-100 bg-slate-100"
+          />
+          <div id="currentAvatarFallback" class="hidden h-16 w-16 items-center justify-center rounded-full bg-indigo-100 text-lg font-bold text-indigo-700">
+            {{ user.full_name | initials }}
+          </div>
+          {% else %}
+          <div id="currentAvatarFallback" class="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100 text-lg font-bold text-indigo-700">
+            {{ user.full_name | initials }}
+          </div>
+          <img id="currentAvatarImg" src="" alt="Vista previa" class="hidden h-16 w-16 rounded-full object-cover ring-2 ring-indigo-100" />
+          {% endif %}
+          <div>
+            <h1 class="text-lg font-bold text-slate-900">Editar usuario</h1>
+            <p class="text-xs text-slate-500 font-mono">ID: {{ user.user_id }}</p>
+            <p class="mt-0.5 text-xs text-slate-400">Creado: {{ user.created_at | format_dt }}</p>
+          </div>
+        </div>
+      </div>
+
+      {% if form_error %}
+      <div class="mb-5 rounded-xl bg-rose-50 p-3.5 text-sm text-rose-800 ring-1 ring-inset ring-rose-600/20" role="alert">
+        {{ form_error }}
+      </div>
+      {% endif %}
+
+      <form action="/users/{{ user.user_id }}/edit" method="post" enctype="multipart/form-data" class="space-y-5">
+        <div>
+          <label for="full_name" class="block text-sm font-medium text-slate-700">Nombre completo</label>
+          <input
+            id="full_name"
+            name="full_name"
+            type="text"
+            required
+            maxlength="120"
+            value="{{ user.full_name }}"
+            class="mt-1.5 block w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+          />
+        </div>
+
+        <div>
+          <label for="email" class="block text-sm font-medium text-slate-700">Correo electrónico</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            required
+            maxlength="180"
+            value="{{ user.email }}"
+            class="mt-1.5 block w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+          />
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="role" class="block text-sm font-medium text-slate-700">Rol</label>
+            <select
+              id="role"
+              name="role"
+              class="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            >
+              {% for r in roles %}
+              <option value="{{ r }}" {{ 'selected' if user.role == r else '' }}>{{ r }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label for="status" class="block text-sm font-medium text-slate-700">Estado</label>
+            <select
+              id="status"
+              name="status"
+              class="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            >
+              {% for s in statuses %}
+              <option value="{{ s }}" {{ 'selected' if user.status == s else '' }}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+          <div>
+            <label for="avatar" class="block text-sm font-medium text-slate-700">
+              Reemplazar foto de perfil
+            </label>
+            <p class="text-xs text-slate-500">
+              Si subes una nueva imagen, la foto anterior en Amazon S3 se eliminará automáticamente.
+            </p>
+            <input
+              id="avatar"
+              name="avatar"
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+              class="mt-2.5 block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-3.5 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-indigo-700"
+            />
+            <p class="mt-1.5 text-[11px] text-slate-400">JPG, PNG o WEBP · Máximo 3 MB</p>
+            <p id="editAvatarError" class="mt-1.5 hidden text-xs text-rose-600"></p>
+          </div>
+
+          {% if user.avatar_url %}
+          <label class="flex items-center gap-2 pt-1 text-xs text-slate-600 cursor-pointer">
+            <input
+              type="checkbox"
+              name="remove_avatar"
+              value="1"
+              class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span>Eliminar foto actual sin subir reemplazo</span>
+          </label>
+          {% endif %}
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-2">
+          <a
+            href="/"
+            class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+          >
+            Cancelar
+          </a>
+          <button
+            type="submit"
+            class="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition"
+          >
+            Guardar cambios
+          </button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <script>
+    const editAvatarInput = document.getElementById("avatar");
+    const editAvatarError = document.getElementById("editAvatarError");
+    const currentAvatarImg = document.getElementById("currentAvatarImg");
+    const currentAvatarFallback = document.getElementById("currentAvatarFallback");
+    const MAX_BYTES = 3 * 1024 * 1024;
+    const VALID_EXT = /\.(jpe?g|png|webp)$/i;
+
+    editAvatarInput?.addEventListener("change", () => {
+      editAvatarError.classList.add("hidden");
+      editAvatarError.textContent = "";
+
+      const file = editAvatarInput.files?.[0];
+      if (!file) return;
+
+      if (!VALID_EXT.test(file.name)) {
+        editAvatarError.textContent = "Formato inválido. Usa JPG, PNG o WEBP.";
+        editAvatarError.classList.remove("hidden");
+        editAvatarInput.value = "";
+        return;
+      }
+
+      if (file.size > MAX_BYTES) {
+        editAvatarError.textContent = "La imagen supera el límite de 3 MB.";
+        editAvatarError.classList.remove("hidden");
+        editAvatarInput.value = "";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (currentAvatarImg) {
+          currentAvatarImg.src = e.target.result;
+          currentAvatarImg.classList.remove("hidden");
+        }
+        currentAvatarFallback?.classList.add("hidden");
+      };
+      reader.readAsDataURL(file);
+    });
+  </script>
+</body>
+</html>
